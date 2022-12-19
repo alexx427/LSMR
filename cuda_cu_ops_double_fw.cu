@@ -1,15 +1,15 @@
 // There is no double atomic add, so use atomicCAS
  __device__ inline void AtomicAddDouble( double *address, double value )
  {
-	unsigned long long oldval, newval, readback; 
+    unsigned long long oldval, newval, readback; 
  
-	oldval = __double_as_longlong(*address);
-	newval = __double_as_longlong(__longlong_as_double(oldval) + value);
+    oldval = __double_as_longlong(*address);
+    newval = __double_as_longlong(__longlong_as_double(oldval) + value);
     while( (readback = atomicCAS((unsigned long long *)address, oldval, newval)) != oldval )
-	{
-		oldval = readback;
-		newval = __double_as_longlong(__longlong_as_double(oldval) + value);
-	}
+    {
+        oldval = readback;
+        newval = __double_as_longlong(__longlong_as_double(oldval) + value);
+    }
  }
 
 // LSMR algorithm (https://stanford.edu/group/SOL/software/lsmr)
@@ -38,29 +38,29 @@
  texture<int2, cudaTextureType1D, cudaReadModeElementType> v1Tex;
  __global__ void KernelMulMVC_VC_Doublefw( const double *data, const int *col_indices, const int M, const int aM, const int aMxN, const double c1, const double *v2, const double c2, double *v3, double *v3norm )
 {
-	int tid = threadIdx.x;
-	int bid = blockIdx.x;
-	int blockSize = blockDim.x;
-	int row = bid * blockSize + tid;
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+    int blockSize = blockDim.x;
+    int row = bid * blockSize + tid;
 
     // Declare shared memory array
     extern __shared__ volatile double sdata[];
 
     // Return this thread is out of input matrix
     if( row >= M )
-		return;
+        return;
 
     // Iterate through one row of row-compressed matrix
     double sum = 0.0;
-	for( int s = row; s < aMxN; s += aM )
-	{
+    for( int s = row; s < aMxN; s += aM )
+    {
         int vidx = col_indices[s]; // Get column index
         if( vidx == -1 ) // Negative index means no more data in this row
-			break;
+            break;
         int2 vi = tex1Dfetch( v1Tex, vidx ); // Read double as int2 from texture
         double v = __hiloint2double( vi.y, vi.x ); // Convert int2 to double
-		sum += data[s] * v;
-	}
+        sum += data[s] * v;
+    }
 
     // Calculate and output 1 component of the result vector
     double nv2 = sum * c1 - v2[row] * c2;
@@ -99,8 +99,8 @@ void CUDACSRMV_Doublefw( int block_size, int rnum, int arnum, int cnum, int nznu
 {
     cudaBindTexture( (size_t)0, v1Tex, v1, sizeof(double)*cnum );
     cudaDeviceSynchronize();
-	
-	int block_num = rnum / block_size + 1;
+    
+    int block_num = rnum / block_size + 1;
     KernelMulMVC_VC_Doublefw<<<block_num, block_size, block_size*sizeof(double)>>>( data, cind, rnum, arnum, arnum*nznum, c1, v2, c2, v3, v3norm );
 }
 
@@ -160,3 +160,4 @@ void CUDAVec3Update_Doublefw( int block_size, int cnum, double ralpha, double *v
     int block_num = cnum / block_size + 1;
     KernelVec3Update_Doublefw<<<block_num, block_size, block_size*sizeof(double)>>>( cnum, hbar, h, x, ralpha, v, m1, m2, m3, hbar_r, h_r, x_r, xnorm );
 }
+
